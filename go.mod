@@ -1,3 +1,3 @@
-module github.com/bublicov/lang_redirect
+module github.com/bublicov/traefik-lang-redirect
 
 go 1.19

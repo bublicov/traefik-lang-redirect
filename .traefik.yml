@@ -1,10 +1,10 @@
-displayName: Demo Plugin
+displayName: Plugin lang_redirect
 type: middleware
 iconPath: .assets/icon.png
 
-import: github.com/traefik/plugindemo
+import: github.com/bublicov/traefik-lang-redirect
 
-summary: '[Demo] Add Request Header'
+summary: 'Add language to request'
 
 testData:
   Headers:

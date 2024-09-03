@@ -59,9 +59,9 @@ matches the selected strategy of the plugin, ensuring that no unnecessary redire
 ```yaml
 http:
   middlewares:
-    LocaleIp2Location:
+    LangRedirect:
       plugin:
-        traefik-ip2location:
+        traefik-lang-redirect:
           languages: [ "en", "fr-CA", "de" ]
           defaultLanguage: "en"
 ```
@@ -93,7 +93,7 @@ this:
     
     experimental:
       localPlugins:
-        traefik-ip2location:
+        traefik-lang-redirect:
           moduleName: github.com/bublicov/traefik-lang-redirect
     ```
 

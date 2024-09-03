@@ -1,4 +1,4 @@
-package lang_redirect
+package traefik_lang_redirect
 
 import (
 	"context"
