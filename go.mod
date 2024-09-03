@@ -1,3 +1,3 @@
-module github.com/traefik/plugindemo
+module github.com/bublicov/lang_redirect
 
 go 1.19

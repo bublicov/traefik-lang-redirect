@@ -1,270 +1,144 @@
-This repository includes an example plugin, `demo`, for you to use as a reference for developing your own plugins.
+# Traefik Lang Redirect
 
-[![Build Status](https://github.com/traefik/plugindemo/workflows/Main/badge.svg?branch=master)](https://github.com/traefik/plugindemo/actions)
+The language redirection plugin automatically detects the user's preferred language from the 'Accept-Language' header 
+and redirects them to the corresponding language version of the website based on the configured strategy (header, path, 
+or query). 
 
-The existing plugins can be browsed into the [Plugin Catalog](https://plugins.traefik.io).
+## Configuration
 
-# Developing a Traefik plugin
+### Plugin Configuration
 
-[Traefik](https://traefik.io) plugins are developed using the [Go language](https://golang.org).
+The plugin configuration is defined in the `Config` struct, which includes the following fields:
 
-A [Traefik](https://traefik.io) middleware plugin is just a [Go package](https://golang.org/ref/spec#Packages) that provides an `http.Handler` to perform specific processing of requests and responses.
+- **Languages**: A list of supported languages. The plugin will use this list to validate and set the language for
+  incoming requests.
+- **DefaultLanguage**: The default language to use if the detected language is not supported or if the client's location
+  cannot be determined.
+- **LanguageStrategy** (optional, default: `header`): The strategy to use for handling the language from the request.
+  Possible values are `header`, `path`, and `query`.
+- **RedirectAfterHandling** (optional, default: `false`): A boolean flag that
+  determines whether to perform a redirect after handling the language. If set to `true`, the plugin will redirect the
+  client to the same URL with the updated language, actual for `path` and `query` strategies.
+- **LanguageParam** (optional, default: `lang`): The parameter name to use when the `query` strategy is selected. This
+  parameter will be used to set the language to the query string. 
+- **DefaultLanguageHandling** (optional, default: `false`): A boolean flag that determines whether to handle requests
+  with the default language. If set to `true`, requests with the default language will be processed; otherwise, they
+  will be ignored.
 
-Rather than being pre-compiled and linked, however, plugins are executed on the fly by [Yaegi](https://github.com/traefik/yaegi), an embedded Go interpreter.
+#### **Language Strategies**
 
-## Usage
+The plugin supports three strategies for handling the language from the request:
 
-For a plugin to be active for a given Traefik instance, it must be declared in the static configuration.
+- **header**: The language is handling from the Accept-Language header.
+- **path**: The language is handling from the URL path.
+- **query**: The language is handling from the query string parameter specified by languageParam.
 
-Plugins are parsed and loaded exclusively during startup, which allows Traefik to check the integrity of the code and catch errors early on.
-If an error occurs during loading, the plugin is disabled.
+#### **Redirect After Handling**
 
-For security reasons, it is not possible to start a new plugin or modify an existing one while Traefik is running.
+If RedirectAfterHandling is set to true, the plugin will perform a redirect to the same URL with the updated language
+after handling the request.
 
-Once loaded, middleware plugins behave exactly like statically compiled middlewares.
-Their instantiation and behavior are driven by the dynamic configuration.
+#### **Default Language Handling**
 
-Plugin dependencies must be [vendored](https://golang.org/ref/mod#vendoring) for each plugin.
-Vendored packages should be included in the plugin's GitHub repository. ([Go modules](https://blog.golang.org/using-go-modules) are not supported.)
+The `DefaultLanguageHandling` parameter is a boolean flag that determines whether to handle requests with the default
+language. When set to `true`, the plugin will process requests even if the detected language is the default language
+specified in the configuration. This can be particularly useful when the default language of your website does not
+require language-specific URLs, as it allows you to avoid modifying the URL for the default language.
 
-### Configuration
+For example, if your website's default language is English and your URLs are structured without a language prefix (
+e.g., `example.com/about`), setting `DefaultLanguageHandling` to `true` ensures that requests from users whose detected
+language is English will not be redirected to a language-specific URL (e.g., `example.com/en/about`). This maintains the
+clean URL structure for the default language, providing a consistent user experience for visitors who use the default
+language.
 
-For each plugin, the Traefik static configuration must define the module name (as is usual for Go packages).
+Additionally, the plugin will not make any changes to the request if the user's request already contains a language that 
+matches the selected strategy of the plugin, ensuring that no unnecessary redirects occur.
 
-The following declaration (given here in YAML) defines a plugin:
+### Example Configuration
 
 ```yaml
-# Static configuration
-
-experimental:
-  plugins:
-    example:
-      moduleName: github.com/traefik/plugindemo
-      version: v0.2.1
-```
-
-Here is an example of a file provider dynamic configuration (given here in YAML), where the interesting part is the `http.middlewares` section:
-
-```yaml
-# Dynamic configuration
-
 http:
-  routers:
-    my-router:
-      rule: host(`demo.localhost`)
-      service: service-foo
-      entryPoints:
-        - web
-      middlewares:
-        - my-plugin
-
-  services:
-   service-foo:
-      loadBalancer:
-        servers:
-          - url: http://127.0.0.1:5000
-  
   middlewares:
-    my-plugin:
+    LocaleIp2Location:
       plugin:
-        example:
-          headers:
-            Foo: Bar
+        traefik-ip2location:
+          languages: [ "en", "fr-CA", "de" ]
+          defaultLanguage: "en"
 ```
 
-### Local Mode
+## Installation
 
-Traefik also offers a developer mode that can be used for temporary testing of plugins not hosted on GitHub.
-To use a plugin in local mode, the Traefik static configuration must define the module name (as is usual for Go packages) and a path to a [Go workspace](https://golang.org/doc/gopath_code.html#Workspaces), which can be the local GOPATH or any directory.
+To use the Plugin, you need to install it as a **LOCAL PLUGIN** for Traefik. Here are the steps to
+do
+this:
 
-The plugins must be placed in `./plugins-local` directory,
-which should be in the working directory of the process running the Traefik binary.
-The source code of the plugin should be organized as follows:
+1. **Clone the Plugin Repository**: Clone the repository of the Plugin to your local path
+   {root_traefik_dir}/plugins-local/src/github.com/bublicov/traefik-lang-redirect
 
-```
-./plugins-local/
-    └── src
-        └── github.com
-            └── traefik
-                └── plugindemo
-                    ├── demo.go
-                    ├── demo_test.go
-                    ├── go.mod
-                    ├── LICENSE
-                    ├── Makefile
-                    └── readme.md
-```
+    ```sh
+    git clone https://github.com/bublicov/traefik-lang-redirect.git
+    ```
 
-```yaml
-# Static configuration
+2. **Static configuration**: Modify your Traefik configuration to include the local plugin. Here is an example of how to
+   do
+   this in your `traefik.yml` file:
 
-experimental:
-  localPlugins:
-    example:
-      moduleName: github.com/traefik/plugindemo
-```
+    ```yaml
+    entryPoints:
+      web:
+        address: :80
+        http:
+          middlewares:
+            - LangRedirect@file
+    
+    experimental:
+      localPlugins:
+        traefik-ip2location:
+          moduleName: github.com/bublicov/traefik-lang-redirect
+    ```
 
-(In the above example, the `plugindemo` plugin will be loaded from the path `./plugins-local/src/github.com/traefik/plugindemo`.)
+3. **Dynamic Configuration**: Create a `dynamic.yml` file to define the middleware configuration for the plugin.
 
-```yaml
-# Dynamic configuration
-
-http:
-  routers:
-    my-router:
-      rule: host(`demo.localhost`)
-      service: service-foo
-      entryPoints:
-        - web
+    ```yaml   
+    #Header Strategy   
+    http:
       middlewares:
-        - my-plugin
+        LangRedirect:
+          plugin:
+            traefik-lang-redirect:
+              languages: ["en", "fr-CA", "de"]
+              defaultLanguage: "en"
+    ```
 
-  services:
-   service-foo:
-      loadBalancer:
-        servers:
-          - url: http://127.0.0.1:5000
-  
-  middlewares:
-    my-plugin:
-      plugin:
-        example:
-          headers:
-            Foo: Bar
-```
+    ```yaml   
+    #Path Strategy   
+    http:
+      middlewares:
+        LangRedirect:
+          plugin:
+            traefik-lang-redirect:
+              languages: ["en", "fr-CA", "de"]
+              defaultLanguage: "en"
+              defaultLanguageHandling: false #optional (default: false)
+              languageStrategy: "path"
+              redirectAfterHandling: true #optional (default: false)
+    ```
 
-## Defining a Plugin
+    ```yaml   
+    #Query Strategy   
+    http:
+      middlewares:
+        LangRedirect:
+          plugin:
+            traefik-lang-redirect:
+              languages: ["en", "fr-CA", "de"]
+              defaultLanguage: "en"
+              defaultLanguageHandling: false #optional (default: false)
+              languageStrategy: "query"
+              languageParam: "lg" #optional (default: lang)
+              redirectAfterHandling: true #optional (default: false)
+    ```
 
-A plugin package must define the following exported Go objects:
+### License
 
-- A type `type Config struct { ... }`. The struct fields are arbitrary.
-- A function `func CreateConfig() *Config`.
-- A function `func New(ctx context.Context, next http.Handler, config *Config, name string) (http.Handler, error)`.
-
-```go
-// Package example a example plugin.
-package example
-
-import (
-	"context"
-	"net/http"
-)
-
-// Config the plugin configuration.
-type Config struct {
-	// ...
-}
-
-// CreateConfig creates the default plugin configuration.
-func CreateConfig() *Config {
-	return &Config{
-		// ...
-	}
-}
-
-// Example a plugin.
-type Example struct {
-	next     http.Handler
-	name     string
-	// ...
-}
-
-// New created a new plugin.
-func New(ctx context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
-	// ...
-	return &Example{
-		// ...
-	}, nil
-}
-
-func (e *Example) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	// ...
-	e.next.ServeHTTP(rw, req)
-}
-```
-
-## Logs
-
-Currently, the only way to send logs to Traefik is to use `os.Stdout.WriteString("...")` or `os.Stderr.WriteString("...")`.
-
-In the future, we will try to provide something better and based on levels.
-
-## Plugins Catalog
-
-Traefik plugins are stored and hosted as public GitHub repositories.
-
-Every 30 minutes, the Plugins Catalog online service polls Github to find plugins and add them to its catalog.
-
-### Prerequisites
-
-To be recognized by Plugins Catalog, your repository must meet the following criteria:
-
-- The `traefik-plugin` topic must be set.
-- The `.traefik.yml` manifest must exist, and be filled with valid contents.
-
-If your repository fails to meet either of these prerequisites, Plugins Catalog will not see it.
-
-### Manifest
-
-A manifest is also mandatory, and it should be named `.traefik.yml` and stored at the root of your project.
-
-This YAML file provides Plugins Catalog with information about your plugin, such as a description, a full name, and so on.
-
-Here is an example of a typical `.traefik.yml`file:
-
-```yaml
-# The name of your plugin as displayed in the Plugins Catalog web UI.
-displayName: Name of your plugin
-
-# For now, `middleware` is the only type available.
-type: middleware
-
-# The import path of your plugin.
-import: github.com/username/my-plugin
-
-# A brief description of what your plugin is doing.
-summary: Description of what my plugin is doing
-
-# Medias associated to the plugin (optional)
-iconPath: foo/icon.png
-bannerPath: foo/banner.png
-
-# Configuration data for your plugin.
-# This is mandatory,
-# and Plugins Catalog will try to execute the plugin with the data you provide as part of its startup validity tests.
-testData:
-  Headers:
-    Foo: Bar
-```
-
-Properties include:
-
-- `displayName` (required): The name of your plugin as displayed in the Plugins Catalog web UI.
-- `type` (required): For now, `middleware` is the only type available.
-- `import` (required): The import path of your plugin.
-- `summary` (required): A brief description of what your plugin is doing.
-- `testData` (required): Configuration data for your plugin. This is mandatory, and Plugins Catalog will try to execute the plugin with the data you provide as part of its startup validity tests.
-- `iconPath` (optional): A local path in the repository to the icon of the project.
-- `bannerPath` (optional): A local path in the repository to the image that will be used when you will share your plugin page in social medias.
-
-There should also be a `go.mod` file at the root of your project. Plugins Catalog will use this file to validate the name of the project.
-
-### Tags and Dependencies
-
-Plugins Catalog gets your sources from a Go module proxy, so your plugins need to be versioned with a git tag.
-
-Last but not least, if your plugin middleware has Go package dependencies, you need to vendor them and add them to your GitHub repository.
-
-If something goes wrong with the integration of your plugin, Plugins Catalog will create an issue inside your Github repository and will stop trying to add your repo until you close the issue.
-
-## Troubleshooting
-
-If Plugins Catalog fails to recognize your plugin, you will need to make one or more changes to your GitHub repository.
-
-In order for your plugin to be successfully imported by Plugins Catalog, consult this checklist:
-
-- The `traefik-plugin` topic must be set on your repository.
-- There must be a `.traefik.yml` file at the root of your project describing your plugin, and it must have a valid `testData` property for testing purposes.
-- There must be a valid `go.mod` file at the root of your project.
-- Your plugin must be versioned with a git tag.
-- If you have package dependencies, they must be vendored and added to your GitHub repository.
+This plugin is licensed under the MIT License. See the LICENSE file for more details.
